@@ -1,0 +1,11 @@
+# ADB Forensic Helper - Dependencias
+# Instalar con: pip install -r requirements.txt
+
+# WMI: detección de dispositivos USB en Windows
+wmi==1.5.1
+
+# pywin32: acceso a APIs de Windows (requerido por wmi)
+pywin32==311
+
+# PyInstaller: compilar a .exe standalone
+pyinstaller==6.19.0

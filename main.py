@@ -67,24 +67,6 @@ DARK_THEME = {
     "tree_fg":   "#e0e6f0",
     "select":    "#0077b6",
 }
-LIGHT_THEME = {
-    "bg":        "#f0f2f5",
-    "bg2":       "#ffffff",
-    "bg3":       "#e2e6ea",
-    "accent":    "#0077b6",
-    "accent2":   "#005f8e",
-    "success":   "#27ae60",
-    "warning":   "#e67e22",
-    "error":     "#c0392b",
-    "text":      "#1a1d23",
-    "text_dim":  "#5a6475",
-    "border":    "#c8cdd6",
-    "highlight": "#0077b620",
-    "tree_bg":   "#ffffff",
-    "tree_fg":   "#1a1d23",
-    "select":    "#0077b6",
-}
-
 C = dict(DARK_THEME)
 
 FONT_MONO  = ("Consolas", 10)
@@ -120,8 +102,7 @@ class ForensicADBHelper(tk.Tk):
         self._detected_manufacturer: str = "Generic"
         self._retry_active   = False
         self._retry_thread: Optional[threading.Thread] = None
-        self._theme          = "dark"
-        self._all_devices: list[tuple[str, str]] = []   # [(serial, estado), ...]
+        self._all_devices: list[tuple[str, str]] = []
         self._selected_serial: str = ""
 
         self._build_ui()
@@ -149,17 +130,6 @@ class ForensicADBHelper(tk.Tk):
             header, text=f"v{CURRENT_VERSION}  —  Avilla Forensics",
             font=FONT_SMALL, bg=C["bg2"], fg=C["text_dim"]
         ).pack(side="left", padx=4)
-
-        # Botón tema
-        self.btn_theme = tk.Button(
-            header, text="☀ Claro",
-            font=FONT_SMALL,
-            bg=C["bg3"], fg=C["text_dim"],
-            relief="flat", padx=10, pady=4,
-            cursor="hand2",
-            command=self._toggle_theme,
-        )
-        self.btn_theme.pack(side="right", padx=8)
 
         self.lbl_adb_ver = tk.Label(
             header, text="ADB: verificando...",
@@ -333,18 +303,10 @@ class ForensicADBHelper(tk.Tk):
             font=FONT_UI_B, bg=C["bg"], fg=C["accent"]
         ).pack(anchor="w", padx=12, pady=(10, 4))
 
-        self.txt_instructions = scrolledtext.ScrolledText(
-            self.tab_instructions,
-            font=FONT_MONO, bg=C["bg2"], fg=C["text"],
-            insertbackground=C["text"],
-            relief="flat", borderwidth=0,
-            wrap="word", state="disabled",
-            padx=12, pady=10,
-        )
-        self.txt_instructions.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-
+        # Nota forense al fondo — se empaca ANTES del ScrolledText
+        # para que reserve espacio aunque txt_instructions tenga expand=True
         note_frame = tk.Frame(self.tab_instructions, bg=C["bg3"], padx=12, pady=8)
-        note_frame.pack(fill="x", padx=10, pady=(0, 8))
+        note_frame.pack(side="bottom", fill="x", padx=10, pady=(0, 8))
         tk.Label(note_frame, text="Nota forense:", font=FONT_UI_B,
                  bg=C["bg3"], fg=C["warning"]).pack(anchor="w")
         self.lbl_forensic_note = tk.Label(
@@ -354,6 +316,16 @@ class ForensicADBHelper(tk.Tk):
             wraplength=820, justify="left"
         )
         self.lbl_forensic_note.pack(anchor="w")
+
+        self.txt_instructions = scrolledtext.ScrolledText(
+            self.tab_instructions,
+            font=FONT_MONO, bg=C["bg2"], fg=C["text"],
+            insertbackground=C["text"],
+            relief="flat", borderwidth=0,
+            wrap="word", state="disabled",
+            padx=12, pady=10,
+        )
+        self.txt_instructions.pack(fill="both", expand=True, padx=10, pady=(0, 4))
 
     def _build_tab_driver(self):
         tk.Label(
@@ -529,54 +501,6 @@ class ForensicADBHelper(tk.Tk):
         style.configure("Treeview.Heading", font=FONT_UI_B,
                         background=C["bg3"], foreground=C["text"])
         style.map("Treeview", background=[("selected", C["select"])])
-
-    # ─────────────────────────────────────────
-    #  Tema claro / oscuro
-    # ─────────────────────────────────────────
-
-    def _toggle_theme(self):
-        old_theme = DARK_THEME if self._theme == "dark" else LIGHT_THEME
-        self._theme = "light" if self._theme == "dark" else "dark"
-        new_theme = LIGHT_THEME if self._theme == "light" else DARK_THEME
-        C.update(new_theme)
-        self.btn_theme.config(
-            text="🌙 Oscuro" if self._theme == "light" else "☀ Claro"
-        )
-        self._apply_styles()
-        self._recolor_all_widgets(old_theme, new_theme)
-
-    def _recolor_all_widgets(self, old_theme: dict, new_theme: dict):
-        """Recorre todos los widgets y reemplaza colores del tema anterior por los nuevos."""
-        # Mapa de color_viejo → color_nuevo (en minúsculas)
-        color_map = {
-            old_theme[k].lower(): new_theme[k]
-            for k in old_theme
-            if old_theme[k].lower() != new_theme[k].lower()
-        }
-
-        def recolor(widget):
-            for prop in ("bg", "fg", "background", "foreground",
-                         "activebackground", "activeforeground",
-                         "insertbackground", "highlightbackground"):
-                try:
-                    val = widget.cget(prop)
-                    if isinstance(val, str) and val.lower() in color_map:
-                        widget.configure(**{prop: color_map[val.lower()]})
-                except Exception:
-                    pass
-            # Canvas: recolorear óvalos (indicador de estado)
-            if isinstance(widget, tk.Canvas):
-                try:
-                    for item in widget.find_all():
-                        fill = widget.itemcget(item, "fill")
-                        if fill.lower() in color_map:
-                            widget.itemconfig(item, fill=color_map[fill.lower()])
-                except Exception:
-                    pass
-            for child in widget.winfo_children():
-                recolor(child)
-
-        recolor(self)
 
     # ─────────────────────────────────────────
     #  Selector de múltiples dispositivos

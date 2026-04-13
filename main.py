@@ -266,25 +266,28 @@ class ForensicADBHelper(tk.Tk):
             val_lbl.pack(anchor="w")
             self._info_labels[key] = val_lbl
 
-        # ── Compatibilidad Avilla ────────────
-        self.avilla_frame = tk.Frame(self, bg=C["bg3"], padx=18, pady=8)
-        self.avilla_frame.pack(fill="x", padx=10, pady=(2, 0))
+        # ── Compatibilidad Avilla (segunda fila, siempre visible) ──
+        avilla_row = tk.Frame(self.device_info_frame, bg=C["bg"], padx=4, pady=2)
+        avilla_row.pack(fill="x")
 
-        tk.Label(self.avilla_frame, text="Compatibilidad Avilla Forensics:",
+        avilla_card = tk.Frame(avilla_row, bg=C["bg3"], padx=12, pady=8)
+        avilla_card.pack(fill="x")
+
+        tk.Label(avilla_card, text="Compatibilidad Avilla Forensics:",
                  font=FONT_UI_B, bg=C["bg3"], fg=C["text_dim"]).pack(side="left")
 
         self.lbl_avilla_level = tk.Label(
-            self.avilla_frame, text="—",
+            avilla_card, text="—",
             font=FONT_UI_B, bg=C["bg3"], fg=C["text_dim"]
         )
         self.lbl_avilla_level.pack(side="left", padx=(8, 16))
 
         self.lbl_avilla_note = tk.Label(
-            self.avilla_frame, text="Conecta un dispositivo para verificar.",
+            avilla_card, text="Conecta un dispositivo para verificar.",
             font=FONT_SMALL, bg=C["bg3"], fg=C["text_dim"],
-            wraplength=600, justify="left"
+            wraplength=700, justify="left"
         )
-        self.lbl_avilla_note.pack(side="left")
+        self.lbl_avilla_note.pack(side="left", fill="x", expand=True)
 
         # ── Separador ───────────────────────
         tk.Frame(self, bg=C["border"], height=1).pack(fill="x", padx=10, pady=6)
@@ -532,36 +535,48 @@ class ForensicADBHelper(tk.Tk):
     # ─────────────────────────────────────────
 
     def _toggle_theme(self):
+        old_theme = DARK_THEME if self._theme == "dark" else LIGHT_THEME
         self._theme = "light" if self._theme == "dark" else "dark"
-        theme = LIGHT_THEME if self._theme == "light" else DARK_THEME
-        C.update(theme)
+        new_theme = LIGHT_THEME if self._theme == "light" else DARK_THEME
+        C.update(new_theme)
         self.btn_theme.config(
             text="🌙 Oscuro" if self._theme == "light" else "☀ Claro"
         )
         self._apply_styles()
-        self._rebuild_colors()
+        self._recolor_all_widgets(old_theme, new_theme)
 
-    def _rebuild_colors(self):
-        """Reconfigura colores de todos los widgets tras cambio de tema."""
-        self.configure(bg=C["bg"])
+    def _recolor_all_widgets(self, old_theme: dict, new_theme: dict):
+        """Recorre todos los widgets y reemplaza colores del tema anterior por los nuevos."""
+        # Mapa de color_viejo → color_nuevo (en minúsculas)
+        color_map = {
+            old_theme[k].lower(): new_theme[k]
+            for k in old_theme
+            if old_theme[k].lower() != new_theme[k].lower()
+        }
 
         def recolor(widget):
-            try:
-                cls = widget.winfo_class()
-                if cls in ("Frame", "Label", "Canvas"):
-                    widget.configure(bg=C["bg2"] if "header" in str(widget) else C["bg"])
-            except Exception:
-                pass
+            for prop in ("bg", "fg", "background", "foreground",
+                         "activebackground", "activeforeground",
+                         "insertbackground", "highlightbackground"):
+                try:
+                    val = widget.cget(prop)
+                    if isinstance(val, str) and val.lower() in color_map:
+                        widget.configure(**{prop: color_map[val.lower()]})
+                except Exception:
+                    pass
+            # Canvas: recolorear óvalos (indicador de estado)
+            if isinstance(widget, tk.Canvas):
+                try:
+                    for item in widget.find_all():
+                        fill = widget.itemcget(item, "fill")
+                        if fill.lower() in color_map:
+                            widget.itemconfig(item, fill=color_map[fill.lower()])
+                except Exception:
+                    pass
             for child in widget.winfo_children():
                 recolor(child)
 
-        # Forzar redibujado completo reabriendo la ventana es complejo;
-        # notificar al usuario que reinicie para aplicar completamente
-        messagebox.showinfo(
-            "Tema cambiado",
-            f"Tema {'claro' if self._theme == 'light' else 'oscuro'} activado.\n"
-            "Reinicia el programa para aplicarlo completamente."
-        )
+        recolor(self)
 
     # ─────────────────────────────────────────
     #  Selector de múltiples dispositivos
